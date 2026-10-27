@@ -33,7 +33,7 @@ except ImportError as error:
 
 PROFILE_URL = "https://www.naukri.com/mnjuser/profile"
 NAME_VARIANTS = ("Chayan Sehgal", "Chayan S")
-INTERVAL_SECONDS = 45 * 60
+INTERVAL_SECONDS = 30 * 60
 DEBUGGING_PORT = 9222
 
 
@@ -365,7 +365,7 @@ def main() -> None:
             )
             set_profile_name(driver, current_name, target_name)
             print(f"Profile name updated to {target_name}.")
-            print("Next change in 45 minutes. Press Ctrl+C to stop.")
+            print("Next change in 30 minutes. Press Ctrl+C to stop.")
             time.sleep(INTERVAL_SECONDS)
     finally:
         driver.quit()
