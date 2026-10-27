@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -365,7 +366,10 @@ def main() -> None:
             )
             set_profile_name(driver, current_name, target_name)
             print(f"Profile name updated to {target_name}.")
-            print("Next change in 30 minutes. Press Ctrl+C to stop.")
+            last_updated = datetime.now()
+            next_update = last_updated + timedelta(seconds=INTERVAL_SECONDS)
+            print(f"Last updated: {last_updated:%Y-%m-%d %H:%M:%S}")
+            print(f"Next update:  {next_update:%Y-%m-%d %H:%M:%S}. Press Ctrl+C to stop.")
             time.sleep(INTERVAL_SECONDS)
     finally:
         driver.quit()
