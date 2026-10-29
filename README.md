@@ -105,11 +105,16 @@ computer and creates `latest-job-links.html`, a clickable local page with
 separate searches for LinkedIn public posts and job listings, Naukri,
 Wellfound, and company career boards. Each resume is handled separately so its
 role terms are not mixed with another resume. Searches match **any** extracted
-role title or skill, include common experience phrases from fresher through
-two years, and cover results Google dates within the past three days, newest
-first. Experience matching depends on wording in the listing, so confirm that
-the role does not require more than two years. By default, your resume text
-stays local unless `--use-ai` is selected.
+role title or skill and automatically add related early-career titles. For AI
+profiles this includes agentic AI, AI agent, LLM, GenAI, generative AI, RAG,
+and AI application/developer roles. GenAI profiles exclude traditional AI/ML,
+machine-learning, data-scientist, and NLP-engineer titles. Software profiles
+also include related software, application, and stack-specific developer
+titles. Searches include common experience phrases from fresher through two
+years and cover results Google dates within the past three days, newest first.
+Experience matching depends on wording in the listing, so confirm that the
+role does not require more than two years. By default, your resume text stays
+local unless `--use-ai` is selected.
 
 It does not scrape or rank search results, sign in to job platforms, bypass
 access controls, apply, or message recruiters. Search results can be incomplete

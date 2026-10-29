@@ -76,6 +76,48 @@ ROLE_LABELS = {
     "llm engineer": "LLM Engineer",
     "qa engineer": "QA Engineer",
 }
+AI_ROLE_TERMS = (
+    "ai",
+    "artificial intelligence",
+    "agentic",
+    "ai agent",
+    "ai agents",
+    "gen ai",
+    "genai",
+    "generative ai",
+    "llm",
+    "large language model",
+    "rag",
+)
+AI_RELATED_ROLES = (
+    "Agentic AI Engineer",
+    "Agentic AI Developer",
+    "AI Agent Engineer",
+    "AI Agent Developer",
+    "LLM Engineer",
+    "LLM Developer",
+    "GenAI Engineer",
+    "GenAI Developer",
+    "Generative AI Engineer",
+    "Generative AI Developer",
+    "LLM Application Developer",
+    "Generative AI Application Engineer",
+    "RAG Engineer",
+    "RAG Developer",
+    "AI Automation Engineer",
+    "AI Application Developer",
+)
+EXCLUDED_AI_ROLE_PATTERN = re.compile(
+    r"\b(?:ai\s*/\s*ml|machine[\s-]+learning|ml\s+engineer|"
+    r"data\s+scientist|nlp\s+engineer)\b",
+    re.IGNORECASE,
+)
+SOFTWARE_RELATED_ROLES = (
+    "Software Engineer",
+    "Software Developer",
+    "Application Developer",
+    "Full Stack Developer",
+)
 
 
 def read_resume(path: Path) -> str:
@@ -128,6 +170,52 @@ def infer_role(resume_text: str) -> str | None:
     if not count:
         return None
     return ROLE_LABELS.get(role, role.title())
+
+
+def expand_related_roles(roles: list[str], skills: list[str]) -> list[str]:
+    profile_text = " ".join(roles + skills)
+    is_genai_profile = any(
+        re.search(rf"(?<!\w){re.escape(term)}(?!\w)", profile_text, re.IGNORECASE)
+        for term in AI_ROLE_TERMS
+    )
+    expanded = [
+        role for role in roles
+        if not (is_genai_profile and EXCLUDED_AI_ROLE_PATTERN.search(role))
+    ]
+    normalized_roles = [
+        re.sub(r"[^a-z0-9]+", " ", role.lower()).strip() for role in expanded
+    ]
+    normalized_skills = " ".join(skills).lower()
+
+    def add_unique(candidates: tuple[str, ...]) -> None:
+        existing = {re.sub(r"[^a-z0-9]+", " ", role.lower()).strip() for role in expanded}
+        for candidate in candidates:
+            key = re.sub(r"[^a-z0-9]+", " ", candidate.lower()).strip()
+            if key not in existing:
+                expanded.append(candidate)
+                existing.add(key)
+
+    if is_genai_profile:
+        add_unique(AI_RELATED_ROLES)
+
+    if any("engineer" in role or "developer" in role for role in normalized_roles):
+        add_unique(SOFTWARE_RELATED_ROLES)
+
+    if any("backend" in role or "back end" in role or "api" in role for role in normalized_roles):
+        add_unique(("Backend Engineer", "Backend Developer", "API Developer"))
+    if any("frontend" in role or "front end" in role for role in normalized_roles):
+        add_unique(("Frontend Engineer", "Frontend Developer", "UI Developer"))
+    if any("full stack" in role for role in normalized_roles):
+        add_unique(("Full Stack Engineer", "Backend Developer", "Frontend Developer"))
+
+    if "python" in normalized_skills:
+        add_unique(("Python Developer",))
+    if "react" in normalized_skills:
+        add_unique(("React Developer", "Frontend Developer"))
+    if "node" in normalized_skills:
+        add_unique(("Node.js Developer", "Backend Developer"))
+
+    return expanded
 
 
 def load_dotenv(path: Path) -> None:
@@ -197,7 +285,7 @@ def extract_resume_profile(
             {"role": "user", "content": user_prompt},
         ],
         "response_format": {"type": "json_object"},
-        "max_completion_tokens": 500,
+        "max_completion_tokens": 2048,
     }
     request = urllib.request.Request(
         GROQ_CHAT_URL,
@@ -454,7 +542,7 @@ def main() -> int:
             )
             if args.role is not None:
                 roles = [args.role.strip()]
-            profiles.append((path, roles, skills))
+            profiles.append((path, expand_related_roles(roles, skills), skills))
         print(f"Using Groq model {model}; analyzed each resume separately.")
         print("AI mode sends the full resume text to Groq for role/skill extraction.")
     else:
@@ -466,7 +554,7 @@ def main() -> int:
                     f"Could not infer a supported role from {path.name}. "
                     "Rerun with --role or use --use-ai."
                 )
-            profiles.append((path, [role], []))
+            profiles.append((path, expand_related_roles([role], []), []))
         print("Resume text stays local; only search terms are included in Google URLs.")
 
     generated_at = datetime.now().astimezone()
