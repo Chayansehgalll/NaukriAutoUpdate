@@ -80,8 +80,9 @@ already using the port or profile can prevent startup.
 4. Prints the updated name and the local timestamps for the last and next
    update, then waits 30 minutes before repeating.
 
-If Edge is closed while the script is running, it attempts to reopen the
-automation browser and continue.
+If Edge is closed while an update is running, the script attempts to reopen the
+automation browser and continue. If Naukri refreshes the profile editor during
+an update, the script reloads the profile and retries up to three times.
 
 ### Troubleshooting
 
@@ -97,6 +98,9 @@ automation browser and continue.
 - **Profile editor controls cannot be found:** Naukri may have changed its
   profile page. The script stops rather than submitting a change when it
   cannot identify the name field or a unique Save/Update button.
+- **Profile keeps refreshing during an update:** The script reloads and retries
+  stale page elements up to three times. If that still fails, confirm that the
+  profile page has finished loading and try again.
 
 ## Resume-based job finder
 

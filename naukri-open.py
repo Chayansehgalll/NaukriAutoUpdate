@@ -17,6 +17,7 @@ try:
     from selenium import webdriver
     from selenium.common.exceptions import (
         InvalidSessionIdException,
+        StaleElementReferenceException,
         TimeoutException,
         WebDriverException,
     )
@@ -260,23 +261,45 @@ def save_profile(driver: WebDriver) -> None:
 def set_profile_name(
     driver: WebDriver, current_name: str, target_name: str
 ) -> None:
-    click_profile_edit(driver, current_name)
-    first_field, last_field = find_name_fields(driver, current_name)
-    first_field.clear()
-    first_field.send_keys("Chayan")
-    if last_field is not None:
-        last_field.clear()
-        last_field.send_keys("S" if target_name == "Chayan S" else "Sehgal")
-    else:
-        first_field.clear()
-        first_field.send_keys(target_name)
+    reload_profile = False
+    for attempt in range(3):
+        try:
+            if reload_profile:
+                driver.get(PROFILE_URL)
+                wait_for_profile_page(driver)
+                current_name = visible_profile_name(driver)
+                if current_name == target_name:
+                    return
 
-    save_profile(driver)
-    wait_for_profile_name(driver, target_name)
-    if visible_profile_name(driver) != target_name:
-        raise RuntimeError(
-            f"Naukri did not show the expected name {target_name!r} after saving."
-        )
+            click_profile_edit(driver, current_name)
+            first_field, last_field = find_name_fields(driver, current_name)
+            first_field.clear()
+            first_field.send_keys("Chayan")
+            if last_field is not None:
+                last_field.clear()
+                last_field.send_keys("S" if target_name == "Chayan S" else "Sehgal")
+            else:
+                first_field.clear()
+                first_field.send_keys(target_name)
+
+            save_profile(driver)
+            wait_for_profile_name(driver, target_name)
+            if visible_profile_name(driver) != target_name:
+                raise RuntimeError(
+                    f"Naukri did not show the expected name {target_name!r} after saving."
+                )
+            return
+        except StaleElementReferenceException as error:
+            if attempt == 2:
+                raise RuntimeError(
+                    "Naukri kept refreshing the profile while the name was being "
+                    "updated; the update failed after three attempts."
+                ) from error
+            print(
+                "Naukri refreshed the profile during the update; "
+                "reloading the page and retrying..."
+            )
+            reload_profile = True
 
 
 def start_edge_session(
@@ -348,8 +371,15 @@ def main() -> None:
         print(f"Opened {PROFILE_URL}")
 
         while True:
+            target_name: str | None = None
             try:
                 current_name = visible_profile_name(driver)
+                target_name = (
+                    NAME_VARIANTS[1]
+                    if current_name == NAME_VARIANTS[0]
+                    else NAME_VARIANTS[0]
+                )
+                set_profile_name(driver, current_name, target_name)
             except InvalidSessionIdException:
                 print("Edge was closed. Reopening the automation browser...")
                 driver, edge_process = start_edge_session(
@@ -357,14 +387,16 @@ def main() -> None:
                 )
                 driver.get(PROFILE_URL)
                 wait_for_profile_page(driver, timeout=300)
-                current_name = visible_profile_name(driver)
+                if (
+                    target_name is not None
+                    and visible_profile_name(driver) == target_name
+                ):
+                    break
+                continue
 
-            target_name = (
-                NAME_VARIANTS[1]
-                if current_name == NAME_VARIANTS[0]
-                else NAME_VARIANTS[0]
-            )
-            set_profile_name(driver, current_name, target_name)
+            if target_name is None:
+                continue
+
             print(f"Profile name updated to {target_name}.")
             last_updated = datetime.now()
             next_update = last_updated + timedelta(seconds=INTERVAL_SECONDS)
