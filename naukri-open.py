@@ -179,6 +179,30 @@ def editable_fields(
 def find_name_fields(
     driver: WebDriver, current_name: str
 ) -> tuple[WebElement, WebElement | None]:
+    name_parts = current_name.split()
+
+    def name_field_is_ready(browser: WebDriver) -> bool:
+        for _, field in editable_fields(browser):
+            if not field["visible"] or not field["enabled"]:
+                continue
+            description = str(field["description"])
+            value = re.sub(r"\s+", " ", str(field["value"])).strip()
+            if (
+                re.search(r"\bname\b", description)
+                or value == current_name
+                or value in name_parts
+            ):
+                return True
+        return False
+
+    try:
+        WebDriverWait(driver, 10).until(name_field_is_ready)
+    except TimeoutException as error:
+        raise RuntimeError(
+            "The profile editor's name field did not become available; "
+            "no changes were submitted."
+        ) from error
+
     fields = [
         (element, field)
         for element, field in editable_fields(driver)
@@ -197,6 +221,25 @@ def find_name_fields(
     ]
     if len(first_name) == 1 and len(last_name) == 1:
         return first_name[0][0], last_name[0][0]
+
+    current_name_parts = current_name.split()
+    if len(current_name_parts) == 2:
+        current_first_name = [
+            (element, field)
+            for element, field in fields
+            if str(field["value"]).strip() == current_name_parts[0]
+        ]
+        current_last_name = [
+            (element, field)
+            for element, field in fields
+            if str(field["value"]).strip() == current_name_parts[1]
+        ]
+        if (
+            len(current_first_name) == 1
+            and len(current_last_name) == 1
+            and current_first_name[0][0] != current_last_name[0][0]
+        ):
+            return current_first_name[0][0], current_last_name[0][0]
 
     full_name = [
         (element, field)
@@ -218,7 +261,8 @@ def find_name_fields(
 
     raise RuntimeError(
         "Could not identify a unique name field (or first/last name pair) "
-        "in the profile editor; no changes were submitted."
+        "in the profile editor; no changes were submitted. "
+        "Check the visible name-field labels and attributes for a Naukri page update."
     )
 
 
